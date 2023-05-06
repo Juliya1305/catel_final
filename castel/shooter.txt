@@ -1,0 +1,223 @@
+#Создай собственный Шутер!
+from pygame import *
+from random import randint
+from time import time as timer
+
+class GameSprite(sprite.Sprite):
+    def __init__(self, sprite_image, player_x, player_y, speed, wight, height):
+        super().__init__()
+        self.image = transform.scale(image.load(sprite_image), (wight, height))
+        self.rect = self.image.get_rect()
+        self.rect.x = player_x
+        self.rect.y = player_y
+        self.speed = speed
+
+    def reset(self):
+        window.blit(self.image, (self.rect.x, self.rect.y))
+
+class Player(GameSprite):
+
+    def update(self):
+        key_pressed = key.get_pressed()
+        
+        if key_pressed[K_LEFT] and self.rect.x > 5:
+            self.rect.x -= self.speed
+
+        if key_pressed[K_RIGHT] and self.rect.x < 595:
+            self.rect.x += self.speed
+
+    def fire(self):
+        bullet = Bullet('bullet.png', self.rect.centerx, self.rect.top, 15, 15, 20)
+        bullets.add(bullet)
+        fire.play()
+        
+
+class Enemy(GameSprite):
+
+    def update(self):
+        global lost
+        global live
+
+        self.rect.y += self.speed
+
+        if self.rect.y >= 500:
+            
+            self.rect.x = randint(80, 620)
+            self.rect.y = 0
+            self.speed = randint(1, 3)
+
+            lost += 1 
+
+            if lost % 3 == 0:
+                live -= 1
+    
+    def draw(self, window):
+        window.blit(self.image, (self.rect.x, self.rect.y))
+          
+class Bullet(GameSprite):
+    def update(self):
+        self.rect.y -= self.speed
+        if self.rect.y <= 0:
+            self.kill()
+    
+    def draw(self, window):
+        window.blit(self.image, (self.rect.x, self.rect.y))
+
+
+class Asteroids(GameSprite):
+    def update(self):
+        global lost
+
+        self.rect.y += self.speed
+
+        if self.rect.y >= 500:
+            
+            self.rect.x = randint(80, 620)
+            self.rect.y = 0
+            self.speed = randint(1, 3)
+ 
+    def draw(self, window):
+        window.blit(self.image, (self.rect.x, self.rect.y))
+
+window = display.set_mode((700, 500))
+display.set_caption('Шутер')
+
+#задай фон сцены
+background = transform.scale(image.load('galaxy.jpg'), (700,500))
+
+font.init()
+font1 = font.Font(None, 30)
+font2 = font.Font(None, 70)
+win = font2.render('YOU WIN!', True, (255, 215, 0))
+lose = font2.render('YOU LOSE!', True, (255, 0, 0))
+
+count = 0
+lost = 0
+live = 5
+
+counts = font1.render('Счет:' + str(count), True, (255, 255, 255))
+lostes = font1.render('Пропущено:' + str(lost), True, (255, 255, 255))
+wait = font1.render('Пожалуйста, подождите...', True, (255, 0, 0))
+lives = font2.render(str(live), True, (255, 255, 255))
+
+mixer.init()
+mixer.music.load('space.ogg')
+mixer.music.play()
+
+fire = mixer.Sound('fire.ogg')
+clock = time.Clock()
+
+player = Player('rocket.png', 325, 410, 10, 90, 90)
+monsters = sprite.Group()
+bullets = sprite.Group()
+asteroids = sprite.Group()
+
+for i in range(0, 5):
+    x = randint(80, 620)
+    y = 0
+    speed = randint(1, 3)
+    monster = Enemy('ufo.png', x, y, speed, 65, 65)
+    monsters.add(monster)
+
+for i in range(0, 3):
+    x = randint(80, 620)
+    y = 0
+    speed = randint(1, 3)
+    asteroid = Asteroids('asteroid.png', x, y, speed, 65, 65)
+    asteroids.add(asteroid)
+
+run = True
+finish = False
+num_fire = 0
+energy = True
+kills = []
+
+time1 = 0
+sprites_list1 = list()
+asteroid_list1 = list()
+
+while run:
+
+    for e in event.get():
+        if e.type == QUIT:
+            run = False
+
+        if e.type == KEYDOWN:
+            if e.key == K_SPACE and energy:
+                player.fire()
+                num_fire += 1
+                if num_fire % 5 == 0:
+                    energy = False
+                    time1 =  timer()
+            
+
+    if finish != True: 
+        window.blit(background,(0, 0))
+
+        player.reset()
+        monsters.draw(window)
+        bullets.draw(window)
+        asteroids.draw(window)
+
+        player.update()
+        monsters.update()
+        bullets.update()
+        asteroids.update()
+
+        time2 = timer()
+
+        if energy == False and time2 - time1 <= 3:
+            window.blit(wait, (200, 450))
+
+        else:
+            energy = True
+
+        lostes = font1.render('Пропущено:' + str(lost), True, (255, 255, 255))
+
+        
+
+        if  count >= 10:
+            window.blit(win, (245, 250))
+            finish = True
+
+        kill = len(kills)
+        kills = sprite.groupcollide(monsters, bullets, True, True)
+        if len(kills) - kill >= 1:
+            new_kills = len(kills) - kill
+            count += new_kills
+            for i in range (0, new_kills):
+                x = randint(80, 620)
+                y = 0
+                speed = randint(1, 3)
+                monster = Enemy('ufo.png', x, y, speed, 65, 65)
+                monsters.add(monster)
+        counts = font1.render('Счет:' + str(count), True, (255, 255, 255))
+
+
+        sprites_list = sprite.spritecollide(player, monsters, False)
+        asteroid_list = sprite.spritecollide(player, asteroids, False)
+
+        sprites_list2  = sprites_list
+        asteroid_list2  = asteroid_list
+
+        if len(sprites_list2) - len(sprites_list1) >=1:
+            live -= 1
+            
+        if len(asteroid_list2) - len(asteroid_list1) >= 1:
+            live -= 1
+            
+        sprites_list1  = sprites_list2
+        asteroid_list1  = asteroid_list2
+
+        lives = font2.render(str(live), True, (255, 255, 255))
+
+        if live <= 0:
+            window.blit(lose, (200, 250))
+            finish = True
+        
+        window.blit(counts,(0, 30))
+        window.blit(lostes,(0, 60))
+        window.blit(lives, (0, 90))
+
+    clock.tick(40)
+    display.update()
